@@ -6,6 +6,8 @@ This repository is a **fork** of [phuongboi/drone-racing-using-reinforcement-lea
 
 We have introduced **key modifications** that made it possible for the drone to **consistently pass all four gates** (the original agent passed at most three). Our work adds support for the **Sverk V1 drone model**, implements **thrust‑based control** (essential for sim‑to‑real transfer), and carefully tunes the reward function and training setup.
 
+![Drone flies through gates](flight.gif)
+
 ## 🚀 Key improvements (our contribution)
 
 - ✅ **Thrust control (`ActionType.THRUST`)** instead of RPM – chosen **for sim‑to‑real transferability**. RPM control assumes ideal motors that linearly convert signals to angular velocities – unrealistic on real hardware. Thrust commands (forces in Newtons) are physically meaningful and can be directly mapped to real motor commands via a calibrated mixer. In simulation, learning difficulty is comparable to RPM, but the learned policy is much more likely to transfer to a real drone.
