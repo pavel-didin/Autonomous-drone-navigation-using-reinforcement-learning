@@ -58,7 +58,7 @@ Passing condition: drone enters the bounding box of a gate (x between gate pilla
 
 | Algorithm | Action space | Max. gates passed | Training steps | Success rate |
 |-----------|--------------|-------------------|----------------|---------------|
-| PPO (mine) | Thrust       | 4 (all)           | 1 M          | 100%          |
+| PPO (our) | Thrust       | 4 (all)           | 1 M          | 100%          |
 | PPO (original) | RPM     | 3                 | 3 M            | 0% (4th gate) |
 | TD3 (SB3)  | RPM          | 2                 | 6 M            | –             |
 | SAC (SB3)  | RPM          | 2                 | 6 M            | –             |
