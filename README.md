@@ -19,36 +19,36 @@ All experiments were performed with the **Sverk V1** drone (mass 0.216 kg, arm
 
 ## 📈 Reward function (implemented in `FlyThruGateAviary._computeReward()`)
 
-Let \(R(s_t, a_t)\) be the reward at step \(t\):
+Let $R(s_t, a_t)$ be the reward at step $t$:
 
-\[
+$$
 R(s_t, a_t) =
 \begin{cases}
 R_{\text{pass}}, & \text{if gate passed},\\[4pt]
 R_{\text{coll}}, & \text{if collision},\\[4pt]
 R_{\text{approach}} + R_{\text{survival}}, & \text{otherwise},
 \end{cases}
-\]
+$$
 
 with the dense terms defined as
 
-\[
+$$
 R_{\text{approach}} = \Delta d - \alpha \|\boldsymbol{\omega}\| - \beta(\phi^2 + \theta^2), \qquad
 R_{\text{survival}} = \varepsilon.
-\]
+$$
 
 **Parameters and their values:**
 
 | Symbol | Value | Description |
 |--------|-------|-------------|
-| \(R_{\text{pass}}\) | \(+50\) | Sparse bonus for passing a gate |
-| \(R_{\text{coll}}\) | \(+10\) (later changed to \(0\)) | Collision signal (originally positive to encourage exploration) |
-| \(\Delta d = d_{\text{prev}} - d_{\text{curr}}\) | – | Reduction of Euclidean distance to the next gate centre |
-| \(\boldsymbol{\omega} = (p,q,r)\) | – | Angular velocity (rad/s) |
-| \(\alpha\) | \(0.001\) | Weight of angular‑velocity penalty |
-| \(\phi, \theta\) | – | Roll and pitch angles (rad) |
-| \(\beta\) | \(0.01\) | Quadratic penalty coefficient for attitude deviation |
-| \(\varepsilon\) | \(0.1\) | Survival bonus per step (encourages longer episodes) |
+| $R_{\text{pass}}$ | $+50$ | Sparse bonus for passing a gate |
+| $R_{\text{coll}}$ | $+10$ (later changed to $0$) | Collision signal (originally positive to encourage exploration) |
+| $\Delta d = d_{\text{prev}} - d_{\text{curr}}$ | – | Reduction of Euclidean distance to the next gate centre |
+| $\boldsymbol{\omega} = (p,q,r)$ | – | Angular velocity (rad/s) |
+| $\alpha$ | $0.001$ | Weight of angular‑velocity penalty |
+| $\phi, \theta$ | – | Roll and pitch angles (rad) |
+| $\beta$ | $0.01$ | Quadratic penalty coefficient for attitude deviation |
+| $\varepsilon$ | $0.1$ | Survival bonus per step (encourages longer episodes) |
 
 Passing condition: drone enters the bounding box of a gate (x between gate pillars, y within gate depth, z between lower and upper bar). Collision detection uses `p.getContactPoints()` between drone and gate URDF.
 
