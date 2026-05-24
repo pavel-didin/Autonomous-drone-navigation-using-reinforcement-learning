@@ -21,15 +21,19 @@ All experiments were performed with the **Sverk V1** drone (mass 0.216 kg, arm
 
 Let $R(s_t, a_t)$ be the reward at step $t$:
 
+Вот наша формула:
+
 $$
 R(s_t, a_t) = \left\{
 \begin{array}{ll}
 R_{\text{pass}}, & \text{if gate passed}, \\
 R_{\text{coll}}, & \text{if collision}, \\
-R_{\text{approach}} + R_{\text{survival}}, & \text{otherwise},
+R_{\text{approach}} + R_{\text{survival}}, & \text{otherwise}.
 \end{array}
 \right.
 $$
+
+Это объясняет...
 
 with the dense terms defined as
 
