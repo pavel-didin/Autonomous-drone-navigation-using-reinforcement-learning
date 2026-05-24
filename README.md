@@ -42,7 +42,7 @@ $$
 | Symbol | Value | Description |
 |--------|-------|-------------|
 | $R_{\text{pass}}$ | $+50$ | Sparse bonus for passing a gate |
-| $R_{\text{coll}}$ | $+10$ (later changed to $0$) | Collision signal (originally positive to encourage exploration) |
+| $R_{\text{coll}}$ | $+10$ | Collision signal (originally negative, changed to encourage exploration) |
 | $\Delta d = d_{\text{prev}} - d_{\text{curr}}$ | – | Reduction of Euclidean distance to the next gate centre |
 | $\boldsymbol{\omega} = (p,q,r)$ | – | Angular velocity (rad/s) |
 | $\alpha$ | $0.001$ | Weight of angular‑velocity penalty |
