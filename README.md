@@ -24,8 +24,8 @@ Let $R(s_t, a_t)$ be the reward at step $t$:
 $$
 R(s_t, a_t) =
 \begin{cases}
-R_{\text{pass}}, & \text{if gate passed},\\[4pt]
-R_{\text{coll}}, & \text{if collision},\\[4pt]
+R_{\text{pass}}, & \text{if gate passed},\\
+R_{\text{coll}}, & \text{if collision},\\
 R_{\text{approach}} + R_{\text{survival}}, & \text{otherwise},
 \end{cases}
 $$
