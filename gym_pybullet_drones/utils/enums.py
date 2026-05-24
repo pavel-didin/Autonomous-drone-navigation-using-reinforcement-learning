@@ -6,6 +6,7 @@ class DroneModel(Enum):
     CF2X = "cf2x"   # Bitcraze Craziflie 2.0 in the X configuration
     CF2P = "cf2p"   # Bitcraze Craziflie 2.0 in the + configuration
     RACE = "racer"  # Racer drone in the X configuration
+    SVERK_V1 = "sverk_v1"
 
 
 ################################################################################
@@ -39,6 +40,7 @@ class ActionType(Enum):
     VEL = "vel"                 # Velocity input (using PID control)
     ONE_D_RPM = "one_d_rpm"     # 1D (identical input to all motors) with RPMs
     ONE_D_PID = "one_d_pid"     # 1D (identical input to all motors) with PID control
+    THRUST = "thrust"
 
 ################################################################################
 

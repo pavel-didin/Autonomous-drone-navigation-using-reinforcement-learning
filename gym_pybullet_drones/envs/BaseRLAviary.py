@@ -72,10 +72,11 @@ class BaseRLAviary(BaseAviary):
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
-            if drone_model in [DroneModel.CF2X, DroneModel.CF2P]:
-                self.ctrl = [DSLPIDControl(drone_model=DroneModel.CF2X) for i in range(num_drones)]
+            if drone_model in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.SVERK_V1]:
+                self.ctrl = [DSLPIDControl(drone_model=drone_model) for i in range(num_drones)]
             else:
                 print("[ERROR] in BaseRLAviary.__init()__, no controller is available for the specified drone_model")
+             
         super().__init__(drone_model=drone_model,
                          num_drones=num_drones,
                          neighbourhood_radius=neighbourhood_radius,
@@ -94,7 +95,7 @@ class BaseRLAviary(BaseAviary):
         if act == ActionType.VEL:
             self.SPEED_LIMIT = 0.03 * self.MAX_SPEED_KMH * (1000/3600)
 
-        self.w = 2
+        self.w = 1.5
         self.h = 1
         self.offset = 0.1
         self.racing_setup = { 0: [[0, 1, self.h/2+self.offset], [-self.w/2, 1, self.h+self.offset], [self.w/2, 1, self.h+self.offset], [-self.w/2, 1, self.offset], [self.w/2, 1, self.offset]],
@@ -151,10 +152,12 @@ class BaseRLAviary(BaseAviary):
         """
         if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL]:
             size = 4
-        elif self.ACT_TYPE==ActionType.PID:
+        elif self.ACT_TYPE == ActionType.PID:
             size = 3
         elif self.ACT_TYPE in [ActionType.ONE_D_RPM, ActionType.ONE_D_PID]:
             size = 1
+        elif self.ACT_TYPE == ActionType.THRUST:
+            size = 4
         else:
             print("[ERROR] in BaseRLAviary._actionSpace()")
             exit()
@@ -204,7 +207,6 @@ class BaseRLAviary(BaseAviary):
 
                 rpm[k,:] = np.array(self.HOVER_RPM * (1+0.1*target)) # need to tune
 
-
             elif self.ACT_TYPE == ActionType.PID:
                 state = self._getDroneStateVector(k)
                 next_pos = self._calculateNextStep(
@@ -248,6 +250,16 @@ class BaseRLAviary(BaseAviary):
                                                         target_pos=state[0:3]+0.1*np.array([0,0,target[0]])
                                                         )
                 rpm[k,:] = res
+            elif self.ACT_TYPE == ActionType.THRUST:
+                # a = 0 -> hanging power
+                hover_thrust_per_motor = self.GRAVITY / 4.0
+                # range compression ratio
+                beta = 0.3
+                max_thrust_per_motor = self.MAX_THRUST / 4.0
+                # F = F_hover * (1 + beta * a)
+                rpm[k, :] = hover_thrust_per_motor * (1.0 + beta * target)
+                # limit the forces from below to zero and from above to maximum
+                rpm[k, :] = np.clip(rpm[k, :], 0.0, max_thrust_per_motor)
             else:
                 print("[ERROR] in BaseRLAviary._preprocessAction()")
                 exit()
@@ -280,10 +292,10 @@ class BaseRLAviary(BaseAviary):
             act_lo = -1
             act_hi = +1
             for i in range(self.ACTION_BUFFER_SIZE):
-                if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL]:
+                if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL, ActionType.THRUST]:
                     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[act_lo,act_lo,act_lo,act_lo] for i in range(self.NUM_DRONES)])])
                     obs_upper_bound = np.hstack([obs_upper_bound, np.array([[act_hi,act_hi,act_hi,act_hi] for i in range(self.NUM_DRONES)])])
-                elif self.ACT_TYPE==ActionType.PID:
+                elif self.ACT_TYPE == ActionType.PID:
                     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[act_lo,act_lo,act_lo] for i in range(self.NUM_DRONES)])])
                     obs_upper_bound = np.hstack([obs_upper_bound, np.array([[act_hi,act_hi,act_hi] for i in range(self.NUM_DRONES)])])
                 elif self.ACT_TYPE in [ActionType.ONE_D_RPM, ActionType.ONE_D_PID]:

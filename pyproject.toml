@@ -1,28 +1,22 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.poetry]
-name = "gym-pybullet-drones"
-version = "2.0.0"
-description = "PyBullet Gym environments for single and multi-agent reinforcement learning of quadcopter control"
-authors = ["Jacopo Panerati <jacopo.panerati@utoronto.ca>"]
+name = "gym_pybullet_drones"
+version = "1.0.0"
+description = "Modified gym-pybullet-drones environment for drone racing with thrust control and Sverk drone model"
+authors = ["Pavel Didin <didin.pa@phystech.edu>"]
 license = "MIT"
-readme = "pypi_description.md"
-repository = "https://github.com/utiasDSL/gym-pybullet-drones"
-packages = [
-    { include = "gym_pybullet_drones" }
-]
+readme = "README.md"
+packages = [{include = "gym_pybullet_drones"}]
 
 [tool.poetry.dependencies]
-python = "^3.10"
-numpy = "^1.24"
-scipy = "^1.10"
-transforms3d = "^0.4.1"
-matplotlib = "^3.7"
-pytest = "^7.3"
-pybullet = "^3.2.5"
+python = "^3.8"
+numpy = "^1.19"
+pybullet = "^3.2"
 gymnasium = "^0.28"
-stable-baselines3 = "^2.0.0"
-
-[tool.poetry.dev-dependencies]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+scipy = "^1.7"
+transforms3d = "^0.4"
+Pillow = "^9.0"
+opencv-python = "^4.5"

@@ -12,7 +12,7 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 import gymnasium as gym
-from gym_pybullet_drones.utils.enums import DroneModel, Physics, ImageType
+from gym_pybullet_drones.utils.enums import DroneModel, Physics, ImageType, ActionType
 
 
 class BaseAviary(gym.Env):
@@ -89,6 +89,8 @@ class BaseAviary(gym.Env):
         self.GUI = gui
         self.RECORD = record
         self.PHYSICS = physics
+        # Не перезаписываем ACT_TYPE, если он уже установлен дочерним классом
+        self.ACT_TYPE = getattr(self, 'ACT_TYPE', None)
         self.OBSTACLES = obstacles
         self.USER_DEBUG = user_debug_gui
         self.URDF = self.DRONE_MODEL.value + ".urdf"
@@ -343,31 +345,32 @@ class BaseAviary(gym.Env):
             clipped_action = np.reshape(self._preprocessAction(action), (self.NUM_DRONES, 4))
         #### Repeat for as many as the aggregate physics steps #####
         for _ in range(self.PYB_STEPS_PER_CTRL):
-            #### Update and store the drones kinematic info for certain
-            #### Between aggregate steps for certain types of update ###
             if self.PYB_STEPS_PER_CTRL > 1 and self.PHYSICS in [Physics.DYN, Physics.PYB_GND, Physics.PYB_DRAG, Physics.PYB_DW, Physics.PYB_GND_DRAG_DW]:
                 self._updateAndStoreKinematicInformation()
-            #### Step the simulation using the desired physics update ##
-            for i in range (self.NUM_DRONES):
-                if self.PHYSICS == Physics.PYB:
-                    self._physics(clipped_action[i, :], i)
-                elif self.PHYSICS == Physics.DYN:
-                    self._dynamics(clipped_action[i, :], i)
-                elif self.PHYSICS == Physics.PYB_GND:
-                    self._physics(clipped_action[i, :], i)
-                    self._groundEffect(clipped_action[i, :], i)
-                elif self.PHYSICS == Physics.PYB_DRAG:
-                    self._physics(clipped_action[i, :], i)
-                    self._drag(self.last_clipped_action[i, :], i)
-                elif self.PHYSICS == Physics.PYB_DW:
-                    self._physics(clipped_action[i, :], i)
-                    self._downwash(i)
-                elif self.PHYSICS == Physics.PYB_GND_DRAG_DW:
-                    self._physics(clipped_action[i, :], i)
-                    self._groundEffect(clipped_action[i, :], i)
-                    self._drag(self.last_clipped_action[i, :], i)
-                    self._downwash(i)
-            #### PyBullet computes the new state, unless Physics.DYN ###
+            for i in range(self.NUM_DRONES):
+                if self.ACT_TYPE == ActionType.THRUST:
+                    # Режим прямых сил: только thrust + крутящий момент
+                    self._physicsThrust(clipped_action[i, :], i)
+                else:
+                    # Стандартный режим через RPM
+                    if self.PHYSICS == Physics.PYB:
+                        self._physics(clipped_action[i, :], i)
+                    elif self.PHYSICS == Physics.DYN:
+                        self._dynamics(clipped_action[i, :], i)
+                    elif self.PHYSICS == Physics.PYB_GND:
+                        self._physics(clipped_action[i, :], i)
+                        self._groundEffect(clipped_action[i, :], i)
+                    elif self.PHYSICS == Physics.PYB_DRAG:
+                        self._physics(clipped_action[i, :], i)
+                        self._drag(self.last_clipped_action[i, :], i)
+                    elif self.PHYSICS == Physics.PYB_DW:
+                        self._physics(clipped_action[i, :], i)
+                        self._downwash(i)
+                    elif self.PHYSICS == Physics.PYB_GND_DRAG_DW:
+                        self._physics(clipped_action[i, :], i)
+                        self._groundEffect(clipped_action[i, :], i)
+                        self._drag(self.last_clipped_action[i, :], i)
+                        self._downwash(i)
             if self.PHYSICS != Physics.DYN:
                 p.stepSimulation(physicsClientId=self.CLIENT)
             #### Save the last applied action (e.g. to compute drag) ###
@@ -713,6 +716,34 @@ class BaseAviary(gym.Env):
                               flags=p.LINK_FRAME,
                               physicsClientId=self.CLIENT
                               )
+    
+    ################################################################################
+                              
+    def _physicsThrust(self,
+                   thrust_forces,  # массив 4 сил в ньютонах
+                   nth_drone
+                   ):
+        """Прикладывает силы тяги непосредственно к пропеллерам (без RPM)."""
+        # Прикладываем вертикальную силу к каждому пропеллеру
+        for i in range(4):
+            p.applyExternalForce(self.DRONE_IDS[nth_drone],
+                                 i,
+                                 forceObj=[0, 0, thrust_forces[i]],
+                                 posObj=[0, 0, 0],
+                                 flags=p.LINK_FRAME,
+                                 physicsClientId=self.CLIENT
+                                 )
+        # Вычисляем крутящие моменты пропорционально силе (KM/KF)
+        torques = thrust_forces * (self.KM / self.KF)
+        if self.DRONE_MODEL == DroneModel.RACE:
+            torques = -torques
+        z_torque = (-torques[0] + torques[1] - torques[2] + torques[3])
+        p.applyExternalTorque(self.DRONE_IDS[nth_drone],
+                              4,
+                              torqueObj=[0, 0, z_torque],
+                              flags=p.LINK_FRAME,
+                              physicsClientId=self.CLIENT
+                              )
 
     ################################################################################
 
@@ -984,38 +1015,117 @@ class BaseAviary(gym.Env):
     ################################################################################
 
     def _parseURDFParameters(self):
-        """Loads parameters from an URDF file.
+        """Loads parameters from an URDF file."""
+        urdf_path = pkg_resources.resource_filename('gym_pybullet_drones', 'assets/' + self.URDF)
+        tree = etxml.parse(urdf_path)
+        root = tree.getroot()
 
-        This method is nothing more than a custom XML parser for the .urdf
-        files in folder `assets/`.
+        # ----- 1 . Determine where the model attributes are located -----
+        # Try to take them from the root tag, if not, from the first child tag
+        if 'arm' in root.attrib:
+            attrs = root.attrib
+        elif len(root) > 0 and 'arm' in root[0].attrib:
+            attrs = root[0].attrib
+        else:
+            raise ValueError("Cannot find model attributes (arm, kf, etc.) in URDF")
 
-        """
-        URDF_TREE = etxml.parse(pkg_resources.resource_filename('gym_pybullet_drones', 'assets/'+self.URDF)).getroot()
-        M = float(URDF_TREE[1][0][1].attrib['value'])
-        L = float(URDF_TREE[0].attrib['arm'])
-        THRUST2WEIGHT_RATIO = float(URDF_TREE[0].attrib['thrust2weight'])
-        IXX = float(URDF_TREE[1][0][2].attrib['ixx'])
-        IYY = float(URDF_TREE[1][0][2].attrib['iyy'])
-        IZZ = float(URDF_TREE[1][0][2].attrib['izz'])
+        arm = float(attrs['arm'])
+        kf = float(attrs['kf'])
+        km = float(attrs['km'])
+        thrust2weight = float(attrs['thrust2weight'])
+        max_speed_kmh = float(attrs['max_speed_kmh'])
+        gnd_eff_coeff = float(attrs['gnd_eff_coeff'])
+        prop_radius = float(attrs['prop_radius'])
+        drag_coeff_xy = float(attrs['drag_coeff_xy'])
+        drag_coeff_z = float(attrs['drag_coeff_z'])
+        dw_coeff_1 = float(attrs['dw_coeff_1'])
+        dw_coeff_2 = float(attrs['dw_coeff_2'])
+        dw_coeff_3 = float(attrs['dw_coeff_3'])
+
+        # ----- 2. Finding base_link -----
+        base_link = None
+        for child in root:
+            if child.tag == 'link' and child.attrib.get('name') == 'base_link':
+                base_link = child
+                break
+        if base_link is None:
+            raise ValueError("base_link not found in URDF")
+
+        # ----- 3. Inertia -----
+        inertial = None
+        for child in base_link:
+            if child.tag == 'inertial':
+                inertial = child
+                break
+        if inertial is None:
+            raise ValueError("inertial not found in base_link")
+
+        mass_tag = None
+        for child in inertial:
+            if child.tag == 'mass':
+                mass_tag = child
+                break
+        if mass_tag is None:
+            raise ValueError("mass not found in inertial")
+        M = float(mass_tag.attrib['value'])
+
+        inertia_tag = None
+        for child in inertial:
+            if child.tag == 'inertia':
+                inertia_tag = child
+                break
+        if inertia_tag is None:
+            raise ValueError("inertia not found in inertial")
+        IXX = float(inertia_tag.attrib['ixx'])
+        IYY = float(inertia_tag.attrib['iyy'])
+        IZZ = float(inertia_tag.attrib['izz'])
         J = np.diag([IXX, IYY, IZZ])
         J_INV = np.linalg.inv(J)
-        KF = float(URDF_TREE[0].attrib['kf'])
-        KM = float(URDF_TREE[0].attrib['km'])
-        COLLISION_H = float(URDF_TREE[1][2][1][0].attrib['length'])
-        COLLISION_R = float(URDF_TREE[1][2][1][0].attrib['radius'])
-        COLLISION_SHAPE_OFFSETS = [float(s) for s in URDF_TREE[1][2][0].attrib['xyz'].split(' ')]
-        COLLISION_Z_OFFSET = COLLISION_SHAPE_OFFSETS[2]
-        MAX_SPEED_KMH = float(URDF_TREE[0].attrib['max_speed_kmh'])
-        GND_EFF_COEFF = float(URDF_TREE[0].attrib['gnd_eff_coeff'])
-        PROP_RADIUS = float(URDF_TREE[0].attrib['prop_radius'])
-        DRAG_COEFF_XY = float(URDF_TREE[0].attrib['drag_coeff_xy'])
-        DRAG_COEFF_Z = float(URDF_TREE[0].attrib['drag_coeff_z'])
-        DRAG_COEFF = np.array([DRAG_COEFF_XY, DRAG_COEFF_XY, DRAG_COEFF_Z])
-        DW_COEFF_1 = float(URDF_TREE[0].attrib['dw_coeff_1'])
-        DW_COEFF_2 = float(URDF_TREE[0].attrib['dw_coeff_2'])
-        DW_COEFF_3 = float(URDF_TREE[0].attrib['dw_coeff_3'])
-        return M, L, THRUST2WEIGHT_RATIO, J, J_INV, KF, KM, COLLISION_H, COLLISION_R, COLLISION_Z_OFFSET, MAX_SPEED_KMH, \
-               GND_EFF_COEFF, PROP_RADIUS, DRAG_COEFF, DW_COEFF_1, DW_COEFF_2, DW_COEFF_3
+
+        # ----- 4. Collision -----
+        collision = None
+        for child in base_link:
+            if child.tag == 'collision':
+                collision = child
+                break
+        if collision is None:
+            raise ValueError("collision not found in base_link")
+
+        geometry = None
+        for child in collision:
+            if child.tag == 'geometry':
+                geometry = child
+                break
+        if geometry is None:
+            raise ValueError("geometry not found in collision")
+
+        cylinder = None
+        for child in geometry:
+            if child.tag == 'cylinder':
+                cylinder = child
+                break
+        if cylinder is None:
+            raise ValueError("cylinder not found in geometry")
+        COLLISION_H = float(cylinder.attrib['length'])
+        COLLISION_R = float(cylinder.attrib['radius'])
+
+        origin = None
+        for child in collision:
+            if child.tag == 'origin':
+                origin = child
+                break
+        if origin is None:
+            COLLISION_Z_OFFSET = 0.0
+        else:
+            xyz = origin.attrib.get('xyz', '0 0 0').split()
+            COLLISION_Z_OFFSET = float(xyz[2])
+
+        DRAG_COEFF = np.array([drag_coeff_xy, drag_coeff_xy, drag_coeff_z])
+
+        return (M, arm, thrust2weight, J, J_INV, kf, km,
+                COLLISION_H, COLLISION_R, COLLISION_Z_OFFSET,
+                max_speed_kmh, gnd_eff_coeff, prop_radius,
+                DRAG_COEFF, dw_coeff_1, dw_coeff_2, dw_coeff_3)
 
     ################################################################################
 

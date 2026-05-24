@@ -55,6 +55,7 @@ class ActorCritic(nn.Module):
         dist = MultivariateNormal(action_mean, cov_mat)
 
         action = dist.sample()
+        action = torch.clamp(action, -1.0, 1.0)
         action_logprob = dist.log_prob(action)
         state_val = self.critic(state)
 
@@ -135,8 +136,13 @@ class PPO:
         self.buffer.state_values.append(state_val)
     
         return action.detach().cpu().numpy().flatten()
-
-
+        
+    def get_deterministic_action(self, state):
+        with torch.no_grad():
+            state = torch.FloatTensor(state).to(device)
+            action_mean = self.policy_old.actor(state)
+        return action_mean.cpu().numpy().flatten()
+        
     def update(self):
         # Monte Carlo estimate of returns
         rewards = []

@@ -201,6 +201,10 @@ class BaseControl(object):
         URDF = self.DRONE_MODEL.value + ".urdf"
         path = pkg_resources.resource_filename('gym_pybullet_drones', 'assets/'+URDF)
         URDF_TREE = etxml.parse(path).getroot()
+        # Временная диагностика
+        if parameter_name == 'kf':
+            print("DEBUG: root attributes:", URDF_TREE[0].attrib.keys())
+            print("DEBUG: looking for", parameter_name)
         #### Find and return the desired parameter #################
         if parameter_name == 'm':
             return float(URDF_TREE[1][0][1].attrib['value'])

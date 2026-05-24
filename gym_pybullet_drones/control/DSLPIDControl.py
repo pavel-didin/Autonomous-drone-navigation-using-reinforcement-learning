@@ -7,7 +7,7 @@ from gym_pybullet_drones.control.BaseControl import BaseControl
 from gym_pybullet_drones.utils.enums import DroneModel
 
 class DSLPIDControl(BaseControl):
-    """PID control class for Crazyflies.
+    """PID control class for Crazyflies and Sverk.
 
     Based on work conducted at UTIAS' DSL. Contributors: SiQi Zhou, James Xu, 
     Tracy Du, Mario Vukosavljev, Calvin Ngan, and Jingyuan Hou.
@@ -17,9 +17,10 @@ class DSLPIDControl(BaseControl):
     ################################################################################
 
     def __init__(self,
-                 drone_model: DroneModel,
-                 g: float=9.8
-                 ):
+             drone_model: DroneModel,
+             g: float=9.8
+             ):
+        
         """Common control classes __init__ method.
 
         Parameters
@@ -30,35 +31,95 @@ class DSLPIDControl(BaseControl):
             The gravitational acceleration in m/s^2.
 
         """
-        super().__init__(drone_model=drone_model, g=g)
-        if self.DRONE_MODEL != DroneModel.CF2X and self.DRONE_MODEL != DroneModel.CF2P:
-            print("[ERROR] in DSLPIDControl.__init__(), DSLPIDControl requires DroneModel.CF2X or DroneModel.CF2P")
-            exit()
-        self.P_COEFF_FOR = np.array([.4, .4, 1.25])
-        self.I_COEFF_FOR = np.array([.05, .05, .05])
-        self.D_COEFF_FOR = np.array([.2, .2, .5])
-        self.P_COEFF_TOR = np.array([70000., 70000., 60000.])
-        self.I_COEFF_TOR = np.array([.0, .0, 500.])
-        self.D_COEFF_TOR = np.array([20000., 20000., 12000.])
-        self.PWM2RPM_SCALE = 0.2685
-        self.PWM2RPM_CONST = 4070.3
-        self.MIN_PWM = 20000
-        self.MAX_PWM = 65535
+        
+        self.DRONE_MODEL = drone_model
+        self.G = g
+        self.control_counter = 0
+
         if self.DRONE_MODEL == DroneModel.CF2X:
+            super().__init__(drone_model=drone_model, g=g)
+            self.P_COEFF_FOR = np.array([.4, .4, 1.25])
+            self.I_COEFF_FOR = np.array([.05, .05, .05])
+            self.D_COEFF_FOR = np.array([.2, .2, .5])
+            self.P_COEFF_TOR = np.array([70000., 70000., 60000.])
+            self.I_COEFF_TOR = np.array([.0, .0, 500.])
+            self.D_COEFF_TOR = np.array([20000., 20000., 12000.])
+            self.PWM2RPM_SCALE = 0.2685
+            self.PWM2RPM_CONST = 4070.3
+            self.MIN_PWM = 20000
+            self.MAX_PWM = 65535
             self.MIXER_MATRIX = np.array([ 
                                     [-.5, -.5, -1],
                                     [-.5,  .5,  1],
-                                    [.5, .5, -1],
-                                    [.5, -.5,  1]
+                                    [ .5,  .5, -1],
+                                    [ .5, -.5,  1]
                                     ])
+            self.reset()
+
         elif self.DRONE_MODEL == DroneModel.CF2P:
+            super().__init__(drone_model=drone_model, g=g)
+            self.P_COEFF_FOR = np.array([.4, .4, 1.25])
+            self.I_COEFF_FOR = np.array([.05, .05, .05])
+            self.D_COEFF_FOR = np.array([.2, .2, .5])
+            self.P_COEFF_TOR = np.array([70000., 70000., 60000.])
+            self.I_COEFF_TOR = np.array([.0, .0, 500.])
+            self.D_COEFF_TOR = np.array([20000., 20000., 12000.])
+            self.PWM2RPM_SCALE = 0.2685
+            self.PWM2RPM_CONST = 4070.3
+            self.MIN_PWM = 20000
+            self.MAX_PWM = 65535
             self.MIXER_MATRIX = np.array([
                                     [0, -1,  -1],
                                     [+1, 0, 1],
                                     [0,  1,  -1],
                                     [-1, 0, 1]
                                     ])
-        self.reset()
+            self.reset()
+
+        elif self.DRONE_MODEL == DroneModel.SVERK_V1:
+            # Manual initialization — DO NOT call super()
+            # Physical parameters from URDF
+            self.M = 0.216
+            self.L = 0.0397
+            self.KF = 3.16e-10
+            self.KM = 7.94e-12
+            self.GRAVITY = self.M * self.G
+            # Moments of inertia
+            self.J = np.diag([0.0003637, 0.0005262, 0.0003986])
+            self.J_INV = np.linalg.inv(self.J)
+
+            # PID coefficients (initial, subject to adjustment)
+            self.P_COEFF_FOR = np.array([0.04, 0.04, 0.125])
+            self.I_COEFF_FOR = np.array([0.005, 0.005, 0.005])
+            self.D_COEFF_FOR = np.array([0.02, 0.02, 0.05])
+            self.P_COEFF_TOR = np.array([7000., 7000., 6000.])
+            self.I_COEFF_TOR = np.array([0., 0., 50.])
+            self.D_COEFF_TOR = np.array([2000., 2000., 1200.])
+
+            # PWM and mixing parameters
+            self.PWM2RPM_SCALE = 0.2685
+            self.PWM2RPM_CONST = 4070.3
+            self.MIN_PWM = 20000
+            self.MAX_PWM = 65535
+            self.MIXER_MATRIX = np.array([ 
+                [-.5, -.5, -1],
+                [-.5,  .5,  1],
+                [ .5,  .5, -1],
+                [ .5, -.5,  1]
+            ])
+
+            # Initializing internal PID variables (from DSLPIDControl.reset)
+            self.last_rpy = np.zeros(3)
+            self.last_pos_e = np.zeros(3)
+            self.integral_pos_e = np.zeros(3)
+            self.last_rpy_e = np.zeros(3)
+            self.integral_rpy_e = np.zeros(3)
+            # Calling reset of the parent (but only to set control_counter = 0)
+            self.control_counter = 0
+
+        else:
+            print("[ERROR] in DSLPIDControl.__init__(), unsupported drone_model")
+            exit()
 
     ################################################################################
 

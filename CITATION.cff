@@ -1,7 +1,10 @@
 cff-version: 1.2.0
-preferred-citation:
-  type: article
-  authors:
+message: "If you use this software in your research, please cite the original gym-pybullet-drones paper and this modified repository."
+title: "Drone racing through gates using deep reinforcement learning (extended version)"
+authors:
+  - family-names: "Didin"
+    given-names: "Pavel"
+    # ORCID: https://orcid.org/0009-0002-0671-8067
   - family-names: "Panerati"
     given-names: "Jacopo"
     orcid: "https://orcid.org/0000-0003-2994-5422"
@@ -18,12 +21,53 @@ preferred-citation:
   - family-names: "Schoellig"
     given-names: "Angela P."
     orcid: "https://orcid.org/0000-0003-4012-4668"
-  doi: "10.0000/00000"
+  - family-names: "Phuong"
+    given-names: "Boi"
+  - family-names: "Barhate"
+    given-names: "Nikhil"
+
+references:
+  - type: article
+    authors:
+      - family-names: "Panerati"
+        given-names: "Jacopo"
+      - family-names: "Zheng"
+        given-names: "Hehui"
+      - family-names: "Zhou"
+        given-names: "SiQi"
+      - family-names: "Xu"
+        given-names: "James"
+      - family-names: "Prorok"
+        given-names: "Amanda"
+      - family-names: "Schoellig"
+        given-names: "Angela P."
+    doi: "10.1109/IROS51168.2021.9636685"
+    journal: "2021 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)"
+    title: "Learning to Fly—a Gym Environment with PyBullet Physics for Reinforcement Learning of Multi-agent Quadcopter Control"
+    year: 2021
+  - type: software
+    title: "drone-racing-using-reinforcement-learning (original fork)"
+    url: "https://github.com/phuongboi/drone-racing-using-reinforcement-learning"
+  - type: software
+    title: "PPO-PyTorch"
+    url: "https://github.com/nikhilbarhate99/PPO-PyTorch"
+
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Panerati"
+      given-names: "Jacopo"
+    - family-names: "Zheng"
+      given-names: "Hehui"
+    - family-names: "Zhou"
+      given-names: "SiQi"
+    - family-names: "Xu"
+      given-names: "James"
+    - family-names: "Prorok"
+      given-names: "Amanda"
+    - family-names: "Schoellig"
+      given-names: "Angela P."
+  doi: "10.1109/IROS51168.2021.9636685"
   journal: "2021 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)"
-  month: 1
-  start: 1 # First page number
-  end: 8 # Last page number
-  title: "Learning to Fly---a Gym Environment with PyBullet Physics for Reinforcement Learning of Multi-agent Quadcopter Control"
-  issue: 1
-  volume: 1
+  title: "Learning to Fly—a Gym Environment with PyBullet Physics for Reinforcement Learning of Multi-agent Quadcopter Control"
   year: 2021
