@@ -331,37 +331,43 @@ class BaseRLAviary(BaseAviary):
                                           frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
                                           )
             return np.array([self.rgb[i] for i in range(self.NUM_DRONES)]).astype('float32')
+        
         elif self.OBS_TYPE == ObservationType.KIN:
-            ############################################################
-            #### OBS SPACE OF SIZE 12
             for i in range(self.NUM_DRONES):
-                #obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
                 obs = self._getDroneStateVector(i)
                 rot_matrix = np.array(p.getMatrixFromQuaternion(obs[3:7]))
 
-                obs_quad = list(obs[10:13]) # linear velocity
-                obs_quad.extend(rot_matrix)
-                assert len(obs_quad) == 12
-                for i, key in enumerate(self.racing_setup.keys()):
-                    if self.passing_flag[i]:
-                        continue
+                obs_quad = list(obs[10:13])  # linear velocity (3)
+                obs_quad.extend(rot_matrix)  # rotation matrix (9)
+                # now we have 12 numbers
+
+                # Collect up to two next unconquered gates
+                gates_to_show = []
+                for key, value in self.racing_setup.items():
+                    if not self.passing_flag[key]:
+                        gates_to_show.append(key)
+                        if len(gates_to_show) == 2:
+                            break
+
+                # Ensure we have exactly two gate descriptors (repeat last if needed)
+                while len(gates_to_show) < 2:
+                    if gates_to_show:
+                        gates_to_show.append(gates_to_show[-1])  # repeat the last gate
+                    else:
+                        # No gates left (all passed) – repeat gate 3 as a dummy
+                        gates_to_show = [3, 3]
+
+                # Add relative positions of the four corners of each gate (4 corners × 3 coords = 12 per gate)
+                for g in gates_to_show:
                     for j in range(4):
-                        relative_pos = np.array(self.racing_setup[key][j+1]) - obs[:3]
+                        relative_pos = np.array(self.racing_setup[g][j+1]) - obs[:3]
                         obs_quad.extend(relative_pos)
-                    if self.passing_flag[2]:
-                        for j in range(4):
-                            relative_pos = np.array(self.racing_setup[key][j+1]) - obs[:3]
-                            obs_quad.extend(relative_pos)
 
-                    if len(obs_quad) >= 36: # 2 consecutive gate
-                        break
-                if self.passing_flag[3]:
-                    obs_36 = np.zeros((1,36)) # fake obs
-                else:
-                    obs_36 = np.expand_dims(np.array(obs_quad), axis=0)#.reshape(36,) # for racing
+                # Final size must be 36
+                obs_36 = np.expand_dims(np.array(obs_quad[:36]), axis=0)
             ret = obs_36.astype('float32')
-
             return ret
+    
             ############################################################
         else:
             print("[ERROR] in BaseRLAviary._computeObs()")
