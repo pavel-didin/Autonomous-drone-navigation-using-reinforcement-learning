@@ -31,7 +31,7 @@ class TakeoffHoverAviary(BaseRLAviary):
 
         # Start just above ground to avoid penetration
         if initial_xyzs is None:
-            initial_xyzs = np.array([[0.0, 0.0, 0.05]])
+            initial_xyzs = np.array([[0.0, 0.0, 0.000]])
         if initial_rpys is None:
             initial_rpys = np.zeros((1, 3))
 
