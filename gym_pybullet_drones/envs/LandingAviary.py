@@ -3,8 +3,8 @@ from gymnasium import spaces
 from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
 from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType
 
-class TakeoffHoverAviary(BaseRLAviary):
-    """Single agent RL: takeoff from ground and hover at target height."""
+class LandingAviary(BaseRLAviary):
+    """Single agent RL: descend from start_height to target_height."""
 
     def __init__(self,
                  drone_model: DroneModel = DroneModel.SVERK_V1,
@@ -17,13 +17,15 @@ class TakeoffHoverAviary(BaseRLAviary):
                  record=False,
                  obs: ObservationType = ObservationType.KIN,
                  act: ActionType = ActionType.THRUST,
-                 target_height: float = 0.4,
+                 start_height: float = 0.5,
+                 target_height: float = 0.05,
                  episode_len_sec: float = 6.0):
+        self.START_HEIGHT = start_height
         self.TARGET_HEIGHT = target_height
         self.EPISODE_LEN_SEC = episode_len_sec
 
         if initial_xyzs is None:
-            initial_xyzs = np.array([[0.0, 0.0, 0.000]])   # on the ground
+            initial_xyzs = np.array([[0.0, 0.0, start_height]])
         if initial_rpys is None:
             initial_rpys = np.zeros((1, 3))
 
@@ -50,7 +52,6 @@ class TakeoffHoverAviary(BaseRLAviary):
         return obs, info
 
     def _observationSpace(self):
-        # Override to return 20-dimensional observation space
         lo = -np.inf
         hi = np.inf
         obs_lower_bound = np.array([[lo, lo, 0, lo, lo, lo, lo, lo, lo, lo, lo, lo,
@@ -60,13 +61,11 @@ class TakeoffHoverAviary(BaseRLAviary):
         return spaces.Box(low=obs_lower_bound, high=obs_upper_bound, dtype=np.float32)
 
     def _computeObs(self):
-        # Return the standard 20-dimensional state vector
         return self._getDroneStateVector(0).astype('float32')
 
     def _computeReward(self):
         state = self._getDroneStateVector(0)
         pos = state[0:3]
-        vel = state[10:13]
         rpy = state[7:10]
         ang_vel = state[13:16]
 
@@ -75,31 +74,13 @@ class TakeoffHoverAviary(BaseRLAviary):
         delta_d = self.prev_dist - dist
         self.prev_dist = dist
 
-        # penalties
+        # Penalties
         penalty_ang = 0.001 * np.linalg.norm(ang_vel)
         penalty_att = 0.01 * (rpy[0]**2 + rpy[1]**2)
-        survival_bonus = 0.1
 
-        # bonus for upward vertical velocity
-        up_bonus = 0.2 * vel[2] if vel[2] > 0 else 0.0
-
-        # sparse bonus for reaching target
-        reached = (dist < 0.05)
-        if reached and not self.goal_reached:
-            self.goal_reached = True
-            sparse_bonus = 100.0
-        else:
-            sparse_bonus = 0.0
-
-        dense_reward = delta_d - penalty_ang - penalty_att + survival_bonus + up_bonus
-
-        # after reaching target, maintain reward for staying near
-        if self.goal_reached:
-            dense_reward = survival_bonus + 0.05 * max(0, 1 - dist/0.1)
-
-        total = dense_reward + sparse_bonus
-        total = np.clip(total, -10.0, 200.0)
-        return float(total)
+        reward = delta_d - penalty_ang - penalty_att
+        reward = np.clip(reward, -10.0, 10.0)
+        return float(reward)
 
     def _computeTerminated(self):
         return False
@@ -109,7 +90,7 @@ class TakeoffHoverAviary(BaseRLAviary):
         pos = state[0:3]
         rpy = state[7:9]
 
-        if (abs(pos[0]) > 1.5 or abs(pos[1]) > 1.5 or pos[2] < 0.0 or pos[2] > 1.2):
+        if (abs(pos[0]) > 1.5 or abs(pos[1]) > 1.5 or pos[2] < 0.0 or pos[2] > 1.0):
             return True
         if (abs(rpy[0]) > 0.52 or abs(rpy[1]) > 0.52):
             return True
