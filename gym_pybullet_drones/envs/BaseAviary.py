@@ -348,7 +348,7 @@ class BaseAviary(gym.Env):
             if self.PYB_STEPS_PER_CTRL > 1 and self.PHYSICS in [Physics.DYN, Physics.PYB_GND, Physics.PYB_DRAG, Physics.PYB_DW, Physics.PYB_GND_DRAG_DW]:
                 self._updateAndStoreKinematicInformation()
             for i in range(self.NUM_DRONES):
-                if self.ACT_TYPE == ActionType.THRUST:
+                if self.ACT_TYPE == ActionType.THRUST or self.ACT_TYPE == ActionType.RATES:
                     # Режим прямых сил: только thrust + крутящий момент
                     self._physicsThrust(clipped_action[i, :], i)
                 else:

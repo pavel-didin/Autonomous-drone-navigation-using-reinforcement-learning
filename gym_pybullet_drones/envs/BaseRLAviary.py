@@ -72,7 +72,7 @@ class BaseRLAviary(BaseAviary):
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
-            if drone_model in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.SVERK_V1]:
+            if drone_model in [DroneModel.CF2X, DroneModel.CF2P, DroneModel.SVERK_V1, DroneModel.SVERK_V2]:
                 self.ctrl = [DSLPIDControl(drone_model=drone_model) for i in range(num_drones)]
             else:
                 print("[ERROR] in BaseRLAviary.__init()__, no controller is available for the specified drone_model")
@@ -150,14 +150,12 @@ class BaseRLAviary(BaseAviary):
             A Box of size NUM_DRONES x 4, 3, or 1, depending on the action type.
 
         """
-        if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL]:
+        if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL, ActionType.THRUST, ActionType.RATES]:
             size = 4
         elif self.ACT_TYPE == ActionType.PID:
             size = 3
         elif self.ACT_TYPE in [ActionType.ONE_D_RPM, ActionType.ONE_D_PID]:
             size = 1
-        elif self.ACT_TYPE == ActionType.THRUST:
-            size = 4
         else:
             print("[ERROR] in BaseRLAviary._actionSpace()")
             exit()
@@ -254,12 +252,67 @@ class BaseRLAviary(BaseAviary):
                 # a = 0 -> hanging power
                 hover_thrust_per_motor = self.GRAVITY / 4.0
                 # range compression ratio
-                beta = 0.3
+                # beta = 0.3 # for SVERK_V2
+                beta = 0.02 # for SVERK_V2
                 max_thrust_per_motor = self.MAX_THRUST / 4.0
                 # F = F_hover * (1 + beta * a)
                 rpm[k, :] = hover_thrust_per_motor * (1.0 + beta * target)
                 # limit the forces from below to zero and from above to maximum
                 rpm[k, :] = np.clip(rpm[k, :], 0.0, max_thrust_per_motor)
+            elif self.ACT_TYPE == ActionType.RATES:
+                # target = [roll_rate_sp, pitch_rate_sp, yaw_rate_sp, thrust_norm]
+                roll_sp, pitch_sp, yaw_sp, thrust_norm = target
+
+                # The current angular velocities of the body (from self.ang_v – PyBullet gives them in the body frame)
+                ang_vel = self.ang_v[k]
+
+                # PD coefficients for sverk_v2 (calculated by inertia and w_n=10, ζ=0.7)
+                Kp_roll  = 0.06
+                Kd_roll  = 0.008
+                Kp_pitch = 0.065
+                Kd_pitch = 0.009
+                Kp_yaw   = 0.08
+                Kd_yaw   = 0.01
+
+                # Angular velocity error
+                roll_err  = roll_sp  - ang_vel[0]
+                pitch_err = pitch_sp - ang_vel[1]
+                yaw_err   = yaw_sp   - ang_vel[2]
+
+                # Desired Moments (PD)
+                tau_x = Kp_roll  * roll_err  - Kd_roll  * ang_vel[0]
+                tau_y = Kp_pitch * pitch_err - Kd_pitch * ang_vel[1]
+                tau_z = Kp_yaw   * yaw_err   - Kd_yaw   * ang_vel[2]
+
+                # Desired total thrust (in Newtons)
+                beta_T = 0.1           # ±10% around the hover
+                T_des = self.GRAVITY * (1.0 + beta_T * thrust_norm)
+                T_des = np.clip(T_des, 0.0, self.MAX_THRUST)
+
+                # Geometry of sverk_v2
+                x = 0.0335
+                y = 0.05641
+
+                # Signs for yaw (correspond to the formula z_torque = (-F0+F1-F2+F3) in _physicsThrust)
+                s = np.array([-1, 1, -1, 1])   # motors 0,1,2,3
+                km_over_kf = self.KM / self.KF
+
+                # Mixing matrix A·F = [T_des, t_x, t_y, t_z]
+                A = np.array([
+                    [1.0,  1.0,  1.0,  1.0],
+                    [ y,    y,   -y,   -y],
+                    [-x,    x,   -x,    x],
+                    km_over_kf * s
+                ])
+
+                b = np.array([T_des, tau_x, tau_y, tau_z])
+                F = np.linalg.solve(A, b)
+
+                # We limit the strength of each thrust
+                F_max = self.MAX_THRUST / 4.0
+                F = np.clip(F, 0.0, F_max)
+
+                rpm[k, :] = F   # temporarily putting forces into the rpm array (used in _physicsThrust)
             else:
                 print("[ERROR] in BaseRLAviary._preprocessAction()")
                 exit()
@@ -292,7 +345,7 @@ class BaseRLAviary(BaseAviary):
             act_lo = -1
             act_hi = +1
             for i in range(self.ACTION_BUFFER_SIZE):
-                if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL, ActionType.THRUST]:
+                if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL, ActionType.THRUST, ActionType.RATES]:
                     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[act_lo,act_lo,act_lo,act_lo] for i in range(self.NUM_DRONES)])])
                     obs_upper_bound = np.hstack([obs_upper_bound, np.array([[act_hi,act_hi,act_hi,act_hi] for i in range(self.NUM_DRONES)])])
                 elif self.ACT_TYPE == ActionType.PID:
