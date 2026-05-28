@@ -10,7 +10,7 @@ from ppo import PPO
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.envs.HoverAviary import HoverAviary
 from gym_pybullet_drones.envs.MultiHoverAviary import MultiHoverAviary
-from gym_pybullet_drones.envs.FlyThruGateAvitary import FlyThruGateAvitary
+from gym_pybullet_drones.envs.FlyThruGateAviary import FlyThruGateAviary
 from gym_pybullet_drones.utils.utils import sync, str2bool
 from gym_pybullet_drones.utils.enums import ObservationType, ActionType
 
@@ -50,11 +50,11 @@ def test():
         print(filename)
         os.makedirs(filename+'/')
 
-    env = FlyThruGateAvitary(gui=DEFAULT_GUI,
+    env = FlyThruGateAviary(gui=DEFAULT_GUI,
                            obs=DEFAULT_OBS,
                            act=DEFAULT_ACT,
                            record=DEFAULT_RECORD_VIDEO,
-                           drone_model=DroneModel.SVERK_V1)
+                           drone_model=DroneModel.SVERK_V2)
 
     # state space dimension
     state_dim = 36
@@ -71,7 +71,7 @@ def test():
     random_seed = 0             #### set this to load a particular checkpoint trained on random seed
     run_num_pretrained = 0      #### set this to load a particular checkpoint num
 
-    checkpoint_path = "log_dir/sverkTHRUST/best_model_1290000.pth"
+    checkpoint_path = "log_dir/sverk_V2_THRUST/best_model_330000.pth"
     print("loading network from : " + checkpoint_path)
 
     ppo_agent.load(checkpoint_path)

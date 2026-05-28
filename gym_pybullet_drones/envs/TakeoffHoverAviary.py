@@ -111,7 +111,7 @@ class TakeoffHoverAviary(BaseRLAviary):
 
         if (abs(pos[0]) > 1.5 or abs(pos[1]) > 1.5 or pos[2] < 0.0 or pos[2] > 1.2):
             return True
-        if (abs(rpy[0]) > 0.52 or abs(rpy[1]) > 0.52):
+        if (abs(rpy[0]) > 0.86 or abs(rpy[1]) > 0.86):
             return True
         if self.step_counter / self.PYB_FREQ > self.EPISODE_LEN_SEC:
             return True

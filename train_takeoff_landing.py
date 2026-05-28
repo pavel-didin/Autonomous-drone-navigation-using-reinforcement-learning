@@ -43,14 +43,14 @@ def train():
                     eps_clip=0.2,
                     action_std_init=0.6)
 
-    log_dir = "log_dir/takeoff_landing_1/"
+    log_dir = "log_dir/takeoff_landing_2/"
     os.makedirs(log_dir, exist_ok=True)
     log_f = open(os.path.join(log_dir, "training_log.csv"), "w")
     log_f.write("timestep,episode,mean_reward\n")
 
     max_timesteps = 3_000_000
     update_timestep = int(env.EPISODE_LEN_SEC * env.CTRL_FREQ * 4)
-    eval_freq = 50_000
+    eval_freq = 10_000
     log_freq = int(env.EPISODE_LEN_SEC * env.CTRL_FREQ * 5)
 
     time_step = 0

@@ -76,7 +76,7 @@ class DSLPIDControl(BaseControl):
                                     ])
             self.reset()
 
-        elif self.DRONE_MODEL == DroneModel.SVERK_V1:
+        elif self.DRONE_MODEL == DroneModel.SVERK_V1 or self.DRONE_MODEL == DroneModel.SVERK_V2:
             # Manual initialization — DO NOT call super()
             # Physical parameters from URDF
             self.M = 0.216

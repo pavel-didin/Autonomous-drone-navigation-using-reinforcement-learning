@@ -96,9 +96,11 @@ class TakeoffLandingAviary(BaseRLAviary):
             # Lifting penalty (positive vertical velocity)
             if vel[2] > 0:
                 reward -= 0.3 * vel[2]
-            # Bonus on landing
-            if dist < 0.05:
-                reward += 50.0
+            # Bonus upon landing, scaled by horizontal precision
+            if pos[2] < 0.05:
+                horizontal_dist = np.linalg.norm(pos[0:2])
+                landing_bonus = max(0.0, 100.0 - 200.0 * horizontal_dist)
+                reward += landing_bonus
 
         reward = np.clip(reward, -10.0, 20.0)
 

@@ -42,6 +42,11 @@ def train():
     action_std_decay_rate = 0.05
     min_action_std = 0.1
     action_std_decay_freq = int(2.5e5)
+    
+    # action_std = 0.05
+    # min_action_std = 0.02
+    # action_std_decay_rate = 0.01
+    
     K_epochs = 80
     eps_clip = 0.2
     gamma = 0.99
@@ -56,11 +61,11 @@ def train():
     best_model_path = None
 
     # Creating the environment and the agent
-    env = FlyThruGateAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, ctrl_freq=CTRL_FREQ, drone_model=DroneModel.SVERK_V1)
+    env = FlyThruGateAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, ctrl_freq=CTRL_FREQ, drone_model=DroneModel.SVERK_V2)
     ppo_agent = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, action_std)
 
     # The log directory
-    log_dir = "log_dir/sverkTHRUST/"
+    log_dir = "log_dir/sverk_V2_THRUST/"
     os.makedirs(log_dir, exist_ok=True)
     log_f = open(os.path.join(log_dir, "training_log.csv"), "w")
     log_f.write("timestep,episode,mean_reward\n")

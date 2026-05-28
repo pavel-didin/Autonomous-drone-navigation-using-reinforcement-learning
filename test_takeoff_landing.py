@@ -6,7 +6,7 @@ from gym_pybullet_drones.utils.enums import ObservationType, ActionType, DroneMo
 from gym_pybullet_drones.utils.utils import sync
 
 def test():
-    checkpoint_path = "log_dir/takeoff_landing/best_model_50000.pth"
+    checkpoint_path = "log_dir/takeoff_landing_2/best_model_830000.pth"
 
     env = TakeoffLandingAviary(
         drone_model=DroneModel.SVERK_V1,
